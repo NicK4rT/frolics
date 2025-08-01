@@ -1,0 +1,21 @@
+name: Travel Post Distribution
+on:
+  push:
+    paths: ['posts/**']
+jobs:
+  distribute:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post to Discord
+        uses: Ilshidur/action-discord@master
+      - name: Post to Tumblr  
+        uses: actionslaw/tumblr-post-action@v1.2.1
+      - name: Trigger Private Repo Update
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.repos.createDispatchEvent({
+              owner: 'your-username',
+              repo: 'your-private-repo',
+              event_type: 'travel-post-update'
+            })
