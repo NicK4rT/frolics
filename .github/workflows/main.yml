@@ -50,6 +50,7 @@ jobs:
       - name: Trigger Private Repo Update
         uses: actions/github-script@v6
         with:
+          github-token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
           script: |
             github.rest.repos.createDispatchEvent({
               owner: 'NicK4rT',
