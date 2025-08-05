@@ -1,15 +1,39 @@
 name: Travel Post Distribution
 on:
   push:
-    paths: ['posts/**']
+    paths: ['posts/*.json']
+  workflow_call:
+  workflow_dispatch:
+
 jobs:
   distribute:
     runs-on: ubuntu-latest
     steps:
+      - name: Get latest JSON file
+        id: newpost
+        run: |
+          # Detect the latest added/modified .json post in this commit
+          file=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep '^posts/.*\.json$' | tail -n1)
+          echo "file=$file" >> $GITHUB_OUTPUT
+
+      - name: Read post data from JSON
+        id: postdata
+        uses: ActionsTools/read-json-action@main
+        with:
+          file_path: "${{ steps.newpost.outputs.file }}"
+
       - name: Post to Discord
-        uses: Ilshidur/action-discord@master
-      - name: Post to Tumblr  
+        uses: tsickert/discord-webhook@v6
+        with:
+          webhook-url: ${{ secrets.DISCORD_LEGO }}
+          content: |
+            **${{ steps.postdata.outputs.title }}**
+            ${{ steps.postdata.outputs.description }}
+            ![Image](${{ steps.postdata.outputs.image_url }})
+        
+      - name: Post to Tumblr
         uses: actionslaw/tumblr-post-action@v1.2.1
+        
       - name: Trigger Private Repo Update
         uses: actions/github-script@v6
         with:
