@@ -41,8 +41,7 @@ jobs:
           LOCATION: ${{ steps.parsed.outputs.location }}
           NUMBER: ${{ steps.parsed.outputs.number }}
         run: |
-          base_url="https://raw.githubusercontent.com/NicK4rT/frolics/main/"
-          embeds=$(echo "$IMAGES" | jq --arg base "$base_url" '[.[] | {image: {url: ($base + .)}}]')
+          embeds=$(echo "$IMAGES" | jq '[.[] | {image: {url: .}}]')
 
           content="**Greetings from $LOCATION**"
           if [ -n "$TITLE" ] && [ "$TITLE" != "null" ]; then
@@ -105,21 +104,29 @@ jobs:
               caption = f"{title}<br>{description_raw}"
           else:
               caption = title
-              
+
+          base_url = "https://raw.githubusercontent.com/NicK4rT/frolics/main/"
+
           images = post.get('images', [])[:10]
           if not images:
               raise Exception("No images found in post JSON!")
-      
-          # Confirm files exist
-          for img in images:
-              if not os.path.exists(img):
-                  raise Exception(f"File does not exist: {img}")
+          
+          local_paths = []
+          for img_url in images:
+              if not img_url.startswith(base_url):
+                  raise Exception(f"Unexpected image URL format: {img_url}")
+          
+              local_path = img_url[len(base_url):]
+              local_paths.append(local_path)
+          
+              if not os.path.exists(local_path):
+                  raise Exception(f"File does not exist: {local_path}")
       
           res = client.create_photo(
               os.environ['BLOG_IDENTIFIER'],
               state="published",
               tags=post.get('tags', []),
-              data=images,
+              data=local_paths,
               caption=caption,
               format='html'
           )
