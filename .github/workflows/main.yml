@@ -70,7 +70,7 @@ jobs:
           fi
 
       - name: Install pytumblr
-        run: pip install pytumblr
+        run: pip install pytumblr requests
 
       - name: Post Tumblr Photo Set
         env:
