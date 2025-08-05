@@ -24,9 +24,13 @@ jobs:
           title=$(jq -r '.title' "${{ steps.newpost.outputs.file }}")
           description=$(jq -r '.description' "${{ steps.newpost.outputs.file }}")
           images=$(jq -c '.images[:10]' "${{ steps.newpost.outputs.file }}")
+          location=$(jq -r '.location' "${{ steps.newpost.outputs.file }}")
+          number=$(jq -r '.number' "${{ steps.newpost.outputs.file }}")
           echo "title=$title" >> $GITHUB_OUTPUT
           echo "description=$description" >> $GITHUB_OUTPUT
           echo "images=$images" >> $GITHUB_OUTPUT
+          echo "loaction=$location" >> $GITHUB_OUTPUT
+          echo "number=$number" >> $GITHUB_OUTPUT
 
       - name: Post to Discord
         env:
@@ -34,12 +38,16 @@ jobs:
             TITLE: ${{ steps.parsed.outputs.title }}
             DESCRIPTION: ${{ steps.parsed.outputs.description }}
             IMAGES: ${{ steps.parsed.outputs.images }}
+            LOCATION: ${{ steps.parsed.outputs.location }}
+            NUMBER: ${{ steps.parsed.outputs.number }}
         run: |
-            base_url="https://raw.githubusercontent.com/NicK4rT/travel-blog/main/"
+            base_url="https://raw.githubusercontent.com/NicK4rT/frolics/main/"
             embeds=$(echo "$IMAGES" | jq --arg base "$base_url" '[.[] | {image: {url: ($base + .)}}]')
 
             payload=$(jq -n \
-              --arg content "$TITLE\n$DESCRIPTION" \
+              --arg content="**Greetings from $LOCATION**
+            $DESCRIPTION"
+
               --argjson embeds "$embeds" \
               '{content: $content, embeds: $embeds}'
             )
