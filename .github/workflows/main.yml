@@ -21,15 +21,40 @@ jobs:
         uses: ActionsTools/read-json-action@main
         with:
           file_path: "${{ steps.newpost.outputs.file }}"
+          
+      - name: Parse post info
+        id: postdata
+        run: |
+          title=$(jq -r '.title' "${{ steps.latest.outputs.file }}")
+          description=$(jq -r '.description' "${{ steps.latest.outputs.file }}")
+          images=$(jq -c '.images[:10]' "${{ steps.latest.outputs.file }}") # up to 10
+          echo "title=$title" >> $GITHUB_OUTPUT
+          echo "description=$description" >> $GITHUB_OUTPUT
+          echo "images=$images" >> $GITHUB_OUTPUT
+          echo "flight=$flight" >> $GITHUB_OUTPUT
+          echo "location=$location" >> $GITHUB_OUTPUT
 
       - name: Post to Discord
-        uses: tsickert/discord-webhook@v6
         with:
-          webhook-url: ${{ secrets.DISCORD_LEGO }}
-          content: |
-            **${{ steps.postdata.outputs.title }}**
-            ${{ steps.postdata.outputs.description }}
-            ![Image](${{ steps.postdata.outputs.image_url }})
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_LEGO }}
+          TITLE: ${{ steps.postdata.outputs.title }}
+          DESCRIPTION: ${{ steps.postdata.outputs.description }}
+          IMAGES: ${{ steps.postdata.outputs.images }}
+        run: |
+          embstr=""
+          imgs=$(echo "$IMAGES" | jq -r '.[]')
+          for img in $imgs; do
+            embstr="$embstr,{\"image\":{\"url\":\"$img\"}}"
+          done
+          # Remove leading comma if exists
+          embstr="[${embstr#,}]"
+
+          # Compose payload
+          payload=$(
+            jq -n --arg title "$TITLE" --arg desc "$DESCRIPTION" --argjson embeds "$embstr" \
+            '{content: ($title + "\n" + $desc), embeds: $embeds}'
+          )
+          curl -X POST -H "Content-Type: application/json" -d "$payload" "$DISCORD_WEBHOOK"
         
       - name: Post to Tumblr
         uses: actionslaw/tumblr-post-action@v1.2.1
