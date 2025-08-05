@@ -101,7 +101,7 @@ jobs:
           else:
               title = f"<b>Greetings from {location}</b>" if location else "<b>Greetings!</b>"
           if description_raw:
-              caption = f"{title}<br>{description_raw}"
+              caption = f"{title}<br><br>{description_raw}"
           else:
               caption = title
 
