@@ -1,12 +1,11 @@
 {
-  "title": "Day in Helsinki",
+  "title": "",
   "description": "Exploring Helsinki!",
   "images": [
     "https://raw.githubusercontent.com/NicK4rT/frolics/main/images/IMG_6789.jpg",
     "https://raw.githubusercontent.com/NicK4rT/frolics/main/images/IMG_6789.jpg",
     "https://raw.githubusercontent.com/NicK4rT/frolics/main/images/IMG_6997.jpg"
   ],
-  "number": "",
+  "flight": "",
   "location": "Helsinki"
 }
-
