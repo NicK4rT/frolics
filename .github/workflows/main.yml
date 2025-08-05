@@ -44,10 +44,11 @@ jobs:
             base_url="https://raw.githubusercontent.com/NicK4rT/frolics/main/"
             embeds=$(echo "$IMAGES" | jq --arg base "$base_url" '[.[] | {image: {url: ($base + .)}}]')
 
-            payload=$(jq -n \
-              --arg content="**Greetings from $LOCATION**
+            content="**Greetings from $LOCATION**
             $DESCRIPTION"
 
+            payload=$(jq -n \
+              --arg content "$content" \
               --argjson embeds "$embeds" \
               '{content: $content, embeds: $embeds}'
             )
