@@ -34,40 +34,89 @@ jobs:
 
       - name: Post to Discord
         env:
-            DISCORD_WEBHOOK: ${{ secrets.DISCORD_LEGO }}
-            TITLE: ${{ steps.parsed.outputs.title }}
-            DESCRIPTION: ${{ steps.parsed.outputs.description }}
-            IMAGES: ${{ steps.parsed.outputs.images }}
-            LOCATION: ${{ steps.parsed.outputs.location }}
-            NUMBER: ${{ steps.parsed.outputs.number }}
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_LEGO }}
+          TITLE: ${{ steps.parsed.outputs.title }}
+          DESCRIPTION: ${{ steps.parsed.outputs.description }}
+          IMAGES: ${{ steps.parsed.outputs.images }}
+          LOCATION: ${{ steps.parsed.outputs.location }}
+          NUMBER: ${{ steps.parsed.outputs.number }}
         run: |
-            base_url="https://raw.githubusercontent.com/NicK4rT/frolics/main/"
-            embeds=$(echo "$IMAGES" | jq --arg base "$base_url" '[.[] | {image: {url: ($base + .)}}]')
+          base_url="https://raw.githubusercontent.com/NicK4rT/frolics/main/"
+          embeds=$(echo "$IMAGES" | jq --arg base "$base_url" '[.[] | {image: {url: ($base + .)}}]')
 
-            content="**Greetings from $LOCATION**"
-            if [ -n "$TITLE" ] && [ "$TITLE" != "null" ]; then
-              content="**$TITLE**"
-            fi
-            if [ -n "$DESCRIPTION" ] && [ "$DESCRIPTION" != "null" ]; then
-              content="$content
-            $DESCRIPTION"
-            fi
+          content="**Greetings from $LOCATION**"
+          if [ -n "$TITLE" ] && [ "$TITLE" != "null" ]; then
+            content="**$TITLE**"
+          fi
+          if [ -n "$DESCRIPTION" ] && [ "$DESCRIPTION" != "null" ]; then
+            content="$content
+          $DESCRIPTION"
+          fi
 
-            payload=$(jq -n \
-              --arg content "$content" \
-              --argjson embeds "$embeds" \
-              '{content: $content, embeds: $embeds}'
-            )
+          payload=$(jq -n \
+            --arg content "$content" \
+            --argjson embeds "$embeds" \
+            '{content: $content, embeds: $embeds}'
+          )
 
-            echo "$payload" | jq
+          echo "$payload" | jq
 
-            response=$(curl -s -w "%{http_code}" -o response.txt -X POST -H "Content-Type: application/json" -d "$payload" "$DISCORD_WEBHOOK")
+          response=$(curl -s -w "%{http_code}" -o response.txt -X POST -H "Content-Type: application/json" -d "$payload" "$DISCORD_WEBHOOK")
 
-            cat response.txt
-            if [ "$response" -ne 204 ]; then
-              echo "Discord POST failed with status $response"
-              exit 1
-            fi
+          cat response.txt
+          if [ "$response" -ne 204 ]; then
+            echo "Discord POST failed with status $response"
+            exit 1
+          fi
+
+      - name: Install pytumblr
+        run: pip install pytumblr
+
+      - name: Post Tumblr Photo Set
+        env:
+          CONSUMER_KEY: ${{ secrets.TUMBLR_CONSUMER_API_KEY }}
+          CONSUMER_SECRET: ${{ secrets.TUMBLR_CONSUMER_API_SECRET }}
+          ACCESS_TOKEN: ${{ secrets.TUMBLR_ACCESS_TOKEN }}
+          ACCESS_TOKEN_SECRET: ${{ secrets.TUMBLR_ACCESS_TOKEN_SECRET }}
+          BLOG_IDENTIFIER: ${{ secrets.TUMBLR_BLOG_IDENTIFIER }}
+          POST_JSON: ${{ steps.newpost.outputs.file }}
+        run: |
+          python3 <<EOF
+          import os, json, pytumblr
+
+          with open(os.environ['POST_JSON']) as f:
+              post = json.load(f)
+
+          client = pytumblr.TumblrRestClient(
+              os.environ['CONSUMER_KEY'],
+              os.environ['CONSUMER_SECRET'],
+              os.environ['ACCESS_TOKEN'],
+              os.environ['ACCESS_TOKEN_SECRET'],
+          )
+
+          caption = f"<b>{post.get('title','')}</b><br>{post.get('description','')}"
+          images = post.get('images', [])[:10]
+          if not images:
+              raise Exception("No images found in post JSON!")
+
+          # Make all images absolute URLs if needed (update this as appropriate)
+          absolute_images = []
+          for img in images:
+              if img.startswith('http://') or img.startswith('https://'):
+                  absolute_images.append(img)
+              else:
+                  absolute_images.append(f"https://raw.githubusercontent.com/NicK4rT/frolics/main/{img}")
+
+          res = client.create_photo(
+              os.environ['BLOG_IDENTIFIER'],
+              state="published",
+              tags=post.get('tags', []),
+              data=absolute_images,
+              caption=caption,
+              format='html'
+          )
+          print(res)
+          EOF
 
       - name: Trigger Private Repo Update
         uses: actions/github-script@v6
