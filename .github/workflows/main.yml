@@ -94,12 +94,22 @@ jobs:
               os.environ['ACCESS_TOKEN_SECRET'],
           )
       
-          caption = f"<b>{post.get('title','')}</b><br>{post.get('description','')}"
+          title_raw = post.get('title', '').strip()
+          location = post.get('location', '').strip()
+          description_raw = post.get('description', '').strip()
+          if title_raw:
+              title = f"<b>{title_raw}</b>"
+          else:
+              title = f"<b>Greetings from {location}</b>" if location else "<b>Greetings!</b>"
+          if description_raw:
+              caption = f"{title}<br>{description_raw}"
+          else:
+              caption = title
+              
           images = post.get('images', [])[:10]
           if not images:
               raise Exception("No images found in post JSON!")
       
-          # No URL conversion at all—just use the path as is!
           # Confirm files exist
           for img in images:
               if not os.path.exists(img):
