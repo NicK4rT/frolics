@@ -109,14 +109,14 @@ jobs:
                 if not os.path.exists(img):
                     raise Exception(f"File does not exist: {img}")
 
-          res = client.create_photo(
-              os.environ['BLOG_IDENTIFIER'],
-              state="published",
-              tags=post.get('tags', []),
-              data=absolute_images,
-              caption=caption,
-              format='html'
-          )
+         res = client.create_photo(
+               os.environ['BLOG_IDENTIFIER'],
+               state="published",
+               tags=post.get('tags', []),
+               data=images,
+               caption=caption,
+            format='html'
+            )
           print(res)
           EOF
 
