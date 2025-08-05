@@ -47,9 +47,6 @@ jobs:
           )
           curl -X POST -H "Content-Type: application/json" -d "$payload" "$DISCORD_WEBHOOK"
 
-      - name: Post to Tumblr
-        uses: actionslaw/tumblr-post-action@v1.2.1
-
       - name: Trigger Private Repo Update
         uses: actions/github-script@v6
         with:
