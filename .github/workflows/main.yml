@@ -83,40 +83,36 @@ jobs:
         run: |
           python3 <<EOF
           import os, json, pytumblr
-
+      
           with open(os.environ['POST_JSON']) as f:
               post = json.load(f)
-
+      
           client = pytumblr.TumblrRestClient(
               os.environ['CONSUMER_KEY'],
               os.environ['CONSUMER_SECRET'],
               os.environ['ACCESS_TOKEN'],
               os.environ['ACCESS_TOKEN_SECRET'],
           )
-
+      
           caption = f"<b>{post.get('title','')}</b><br>{post.get('description','')}"
           images = post.get('images', [])[:10]
           if not images:
               raise Exception("No images found in post JSON!")
-
-          images = post.get('images', [])[:10]
-          if not images:
-            raise Exception("No images found in post JSON!")
-
-            # No URL conversion at all—just use the path as is!
-            # Confirm files exist
-            for img in images:
-                if not os.path.exists(img):
-                    raise Exception(f"File does not exist: {img}")
-
-            res = client.create_photo(
-                os.environ['BLOG_IDENTIFIER'],
-                state="published",
-                tags=post.get('tags', []),
-                data=images,
-                caption=caption,
-            format='html'
-            )
+      
+          # No URL conversion at all—just use the path as is!
+          # Confirm files exist
+          for img in images:
+              if not os.path.exists(img):
+                  raise Exception(f"File does not exist: {img}")
+      
+          res = client.create_photo(
+              os.environ['BLOG_IDENTIFIER'],
+              state="published",
+              tags=post.get('tags', []),
+              data=images,
+              caption=caption,
+              format='html'
+          )
           print(res)
           EOF
 
