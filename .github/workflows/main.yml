@@ -9,56 +9,47 @@ jobs:
   distribute:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
       - name: Get latest JSON file
         id: newpost
         run: |
-          # Detect the latest added/modified .json post in this commit
           file=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep '^posts/.*\.json$' | tail -n1)
           echo "file=$file" >> $GITHUB_OUTPUT
 
-      - name: Read post data from JSON
-        id: postdata
-        uses: ActionsTools/read-json-action@main
-        with:
-          file_path: "${{ steps.newpost.outputs.file }}"
-          
-      - name: Parse post info
-        id: postdata
+      - name: Parse post info (title/desc/images)
+        id: parsed
         run: |
-          title=$(jq -r '.title' "${{ steps.latest.outputs.file }}")
-          description=$(jq -r '.description' "${{ steps.latest.outputs.file }}")
-          images=$(jq -c '.images[:10]' "${{ steps.latest.outputs.file }}") # up to 10
+          title=$(jq -r '.title' "${{ steps.newpost.outputs.file }}")
+          description=$(jq -r '.description' "${{ steps.newpost.outputs.file }}")
+          images=$(jq -c '.images[:10]' "${{ steps.newpost.outputs.file }}")
           echo "title=$title" >> $GITHUB_OUTPUT
           echo "description=$description" >> $GITHUB_OUTPUT
           echo "images=$images" >> $GITHUB_OUTPUT
-          echo "flight=$flight" >> $GITHUB_OUTPUT
-          echo "location=$location" >> $GITHUB_OUTPUT
 
       - name: Post to Discord
-        with:
+        env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_LEGO }}
-          TITLE: ${{ steps.postdata.outputs.title }}
-          DESCRIPTION: ${{ steps.postdata.outputs.description }}
-          IMAGES: ${{ steps.postdata.outputs.images }}
+          TITLE: ${{ steps.parsed.outputs.title }}
+          DESCRIPTION: ${{ steps.parsed.outputs.description }}
+          IMAGES: ${{ steps.parsed.outputs.images }}
         run: |
           embstr=""
           imgs=$(echo "$IMAGES" | jq -r '.[]')
           for img in $imgs; do
             embstr="$embstr,{\"image\":{\"url\":\"$img\"}}"
           done
-          # Remove leading comma if exists
           embstr="[${embstr#,}]"
-
-          # Compose payload
           payload=$(
             jq -n --arg title "$TITLE" --arg desc "$DESCRIPTION" --argjson embeds "$embstr" \
             '{content: ($title + "\n" + $desc), embeds: $embeds}'
           )
           curl -X POST -H "Content-Type: application/json" -d "$payload" "$DISCORD_WEBHOOK"
-        
+
       - name: Post to Tumblr
         uses: actionslaw/tumblr-post-action@v1.2.1
-        
+
       - name: Trigger Private Repo Update
         uses: actions/github-script@v6
         with:
