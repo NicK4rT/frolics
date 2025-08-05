@@ -29,7 +29,7 @@ jobs:
           echo "title=$title" >> $GITHUB_OUTPUT
           echo "description=$description" >> $GITHUB_OUTPUT
           echo "images=$images" >> $GITHUB_OUTPUT
-          echo "loaction=$location" >> $GITHUB_OUTPUT
+          echo "location=$location" >> $GITHUB_OUTPUT
           echo "number=$number" >> $GITHUB_OUTPUT
 
       - name: Post to Discord
@@ -44,8 +44,14 @@ jobs:
             base_url="https://raw.githubusercontent.com/NicK4rT/frolics/main/"
             embeds=$(echo "$IMAGES" | jq --arg base "$base_url" '[.[] | {image: {url: ($base + .)}}]')
 
-            content="**Greetings from $LOCATION**
+            content="**Greetings from $LOCATION**"
+            if [ -n "$TITLE" ] && [ "$TITLE" != "null" ]; then
+              content="**$TITLE**"
+            fi
+            if [ -n "$DESCRIPTION" ] && [ "$DESCRIPTION" != "null" ]; then
+              content="$content
             $DESCRIPTION"
+            fi
 
             payload=$(jq -n \
               --arg content "$content" \
