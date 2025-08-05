@@ -69,54 +69,69 @@ jobs:
             exit 1
           fi
 
-      - name: Install pytumblr
-        run: pip install pytumblr
-
+      - name: Install dependencies
+        run: pip install pytumblr requests
+        
       - name: Post Tumblr Photo Set
-        env:
-          CONSUMER_KEY: ${{ secrets.TUMBLR_CONSUMER_API_KEY }}
-          CONSUMER_SECRET: ${{ secrets.TUMBLR_CONSUMER_API_SECRET }}
-          ACCESS_TOKEN: ${{ secrets.TUMBLR_ACCESS_TOKEN }}
-          ACCESS_TOKEN_SECRET: ${{ secrets.TUMBLR_ACCESS_TOKEN_SECRET }}
-          BLOG_IDENTIFIER: ${{ secrets.TUMBLR_BLOG_IDENTIFIER }}
-          POST_JSON: ${{ steps.newpost.outputs.file }}
-        run: |
-          python3 <<EOF
-          import os, json, pytumblr
+          env:
+            CONSUMER_KEY: ${{ secrets.TUMBLR_CONSUMER_API_KEY }}
+            CONSUMER_SECRET: ${{ secrets.TUMBLR_CONSUMER_API_SECRET }}
+            ACCESS_TOKEN: ${{ secrets.TUMBLR_ACCESS_TOKEN }}
+            ACCESS_TOKEN_SECRET: ${{ secrets.TUMBLR_ACCESS_TOKEN_SECRET }}
+            BLOG_IDENTIFIER: ${{ secrets.TUMBLR_BLOG_IDENTIFIER }}
+            POST_JSON: ${{ steps.newpost.outputs.file }}
+          run: |
+            python3 <<EOF
+            import os, json, pytumblr, requests
 
-          with open(os.environ['POST_JSON']) as f:
-              post = json.load(f)
+            with open(os.environ['POST_JSON']) as f:
+                post = json.load(f)
 
-          client = pytumblr.TumblrRestClient(
-              os.environ['CONSUMER_KEY'],
-              os.environ['CONSUMER_SECRET'],
-              os.environ['ACCESS_TOKEN'],
-              os.environ['ACCESS_TOKEN_SECRET'],
-          )
+            client = pytumblr.TumblrRestClient(
+                os.environ['CONSUMER_KEY'],
+                os.environ['CONSUMER_SECRET'],
+                os.environ['ACCESS_TOKEN'],
+                os.environ['ACCESS_TOKEN_SECRET'],
+            )
 
-          caption = f"<b>{post.get('title','')}</b><br>{post.get('description','')}"
-          images = post.get('images', [])[:10]
-          if not images:
-              raise Exception("No images found in post JSON!")
+            caption = f"<b>{post.get('title','')}</b><br>{post.get('description','')}"
+            images = post.get('images', [])[:10]
+            if not images:
+                raise Exception("No images found in post JSON!")
 
-          # Make all images absolute URLs if needed (update this as appropriate)
-          absolute_images = []
-          for img in images:
-              if img.startswith('http://') or img.startswith('https://'):
-                  absolute_images.append(img)
-              else:
-                  absolute_images.append(f"https://raw.githubusercontent.com/NicK4rT/frolics/main/{img}")
+            temp_files = []
+            try:
+                for i, img in enumerate(images):
+                    # Resolve to raw GitHub URL if not already
+                    if img.startswith('http://') or img.startswith('https://'):
+                        url = img
+                    else:
+                        url = f"https://raw.githubusercontent.com/NicK4rT/frolics/main/{img}"
+                    # Download
+                    r = requests.get(url)
+                    local = f"image_{i}.jpg"
+                    with open(local, "wb") as out:
+                        out.write(r.content)
+                    temp_files.append(local)
 
-          res = client.create_photo(
-              os.environ['BLOG_IDENTIFIER'],
-              state="published",
-              tags=post.get('tags', []),
-              data=absolute_images,
-              caption=caption,
-              format='html'
-          )
-          print(res)
-          EOF
+                res = client.create_photo(
+                    os.environ['BLOG_IDENTIFIER'],
+                    state="published",
+                    tags=post.get('tags', []),
+                    data=temp_files,
+                    caption=caption,
+                    format='html'
+                )
+                print(res)
+            finally:
+                # Clean up temp files
+                for f in temp_files:
+                    try:
+                        os.remove(f)
+                    except Exception:
+                        pass
+            EOF
+
 
       - name: Trigger Private Repo Update
         uses: actions/github-script@v6
