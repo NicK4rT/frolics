@@ -29,12 +29,12 @@ jobs:
           echo "images=$images" >> $GITHUB_OUTPUT
 
       - name: Post to Discord
-          env:
+        env:
             DISCORD_WEBHOOK: ${{ secrets.DISCORD_LEGO }}
             TITLE: ${{ steps.parsed.outputs.title }}
             DESCRIPTION: ${{ steps.parsed.outputs.description }}
             IMAGES: ${{ steps.parsed.outputs.images }}
-          run: |
+        run: |
             # Convert image URLs to proper embed JSON objects
             embeds=$(echo "$IMAGES" | jq '[.[] | {image: {url: .}}]')
 
