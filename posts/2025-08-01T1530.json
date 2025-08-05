@@ -2,5 +2,8 @@
   "description": "Enjoyed a beautiful flight over the Alps.",
   "location": "Zurich, Switzerland",
   "number": "LX1234",
-  "images": ["images/image1.jpg", "images/image2.jpg"]
+  "images": [
+      "https://raw.githubusercontent.com/NicK4rT/frolics/main/images/IMG_6789.jpg",
+      "https://raw.githubusercontent.com/NicK4rT/frolics/main/images/IMG_6789.jpg",
+      "https://raw.githubusercontent.com/NicK4rT/frolics/main/images/IMG_6997.jpg"]
 }
