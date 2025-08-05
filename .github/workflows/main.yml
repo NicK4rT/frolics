@@ -15,7 +15,7 @@ jobs:
       - name: Get latest JSON file
         id: newpost
         run: |
-          file=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep '^posts/.*\.json$' | tail -n1)
+          file=$(ls posts/*.json | sort | tail -n1)
           echo "file=$file" >> $GITHUB_OUTPUT
 
       - name: Parse post info (title/desc/images)
