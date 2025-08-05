@@ -35,22 +35,19 @@ jobs:
             DESCRIPTION: ${{ steps.parsed.outputs.description }}
             IMAGES: ${{ steps.parsed.outputs.images }}
         run: |
-            # Convert image URLs to proper embed JSON objects
-            embeds=$(echo "$IMAGES" | jq '[.[] | {image: {url: .}}]')
+            base_url="https://raw.githubusercontent.com/NicK4rT/travel-blog/main/"
+            embeds=$(echo "$IMAGES" | jq --arg base "$base_url" '[.[] | {image: {url: ($base + .)}}]')
 
-            # Create full payload
             payload=$(jq -n \
               --arg content "$TITLE\n$DESCRIPTION" \
               --argjson embeds "$embeds" \
               '{content: $content, embeds: $embeds}'
             )
 
-            echo "Payload:"
             echo "$payload" | jq
 
-            # Send to Discord and capture response
             response=$(curl -s -w "%{http_code}" -o response.txt -X POST -H "Content-Type: application/json" -d "$payload" "$DISCORD_WEBHOOK")
-            
+
             cat response.txt
             if [ "$response" -ne 204 ]; then
               echo "Discord POST failed with status $response"
