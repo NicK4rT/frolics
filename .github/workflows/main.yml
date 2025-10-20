@@ -29,7 +29,7 @@ jobs:
       - name: Parse post info (title/desc/images)
         id: parsed
         run: |
-          for file in ${{ steps.newposts.outputs.files }}; do
+          echo "${{ steps.newposts.outputs.files }}" | while IFS= read -r file; do
             echo "Parsing $file ..."
             title=$(jq -r '.title' "$file")
             description=$(jq -r '.description' "$file")
