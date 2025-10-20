@@ -1,4 +1,5 @@
 name: Travel Post Distribution
+
 on:
   push:
     paths: ['posts/*.json']
@@ -11,127 +12,118 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
-      - name: Get latest JSON file
-        id: newpost
+      - name: Get new JSON files
+        id: newposts
         run: |
-          file=$(ls posts/*.json | sort | tail -n1)
-          echo "file=$file" >> $GITHUB_OUTPUT
+          files=$(git diff --name-only HEAD^ HEAD -- 'posts/*.json' || true)
+          echo "files<<EOF" >> $GITHUB_OUTPUT
+          echo "$files" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Parse post info (title/desc/images)
-        id: parsed
-        run: |
-          title=$(jq -r '.title' "${{ steps.newpost.outputs.file }}")
-          description=$(jq -r '.description' "${{ steps.newpost.outputs.file }}")
-          images=$(jq -c '.images[:10]' "${{ steps.newpost.outputs.file }}")
-          location=$(jq -r '.location' "${{ steps.newpost.outputs.file }}")
-          number=$(jq -r '.number' "${{ steps.newpost.outputs.file }}")
-          echo "title=$title" >> $GITHUB_OUTPUT
-          echo "description=$description" >> $GITHUB_OUTPUT
-          echo "images=$images" >> $GITHUB_OUTPUT
-          echo "location=$location" >> $GITHUB_OUTPUT
-          echo "number=$number" >> $GITHUB_OUTPUT
+      - name: Install dependencies
+        run: pip install pytumblr requests jq
 
-      - name: Post to Discord
+      - name: Process and Post All
+        if: steps.newposts.outputs.files != ''
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_LEGO }}
-          TITLE: ${{ steps.parsed.outputs.title }}
-          DESCRIPTION: ${{ steps.parsed.outputs.description }}
-          IMAGES: ${{ steps.parsed.outputs.images }}
-          LOCATION: ${{ steps.parsed.outputs.location }}
-          NUMBER: ${{ steps.parsed.outputs.number }}
-        run: |
-          embeds=$(echo "$IMAGES" | jq '[.[] | {image: {url: .}}]')
-
-          content="**Greetings from $LOCATION**"
-          if [ -n "$TITLE" ] && [ "$TITLE" != "null" ]; then
-            content="**$TITLE**"
-          fi
-          if [ -n "$DESCRIPTION" ] && [ "$DESCRIPTION" != "null" ]; then
-            content="$content
-          $DESCRIPTION"
-          fi
-
-          payload=$(jq -n \
-            --arg content "$content" \
-            --argjson embeds "$embeds" \
-            '{content: $content, embeds: $embeds}'
-          )
-
-          echo "$payload" | jq
-
-          response=$(curl -s -w "%{http_code}" -o response.txt -X POST -H "Content-Type: application/json" -d "$payload" "$DISCORD_WEBHOOK")
-
-          cat response.txt
-          if [ "$response" -ne 204 ]; then
-            echo "Discord POST failed with status $response"
-            exit 1
-          fi
-
-      - name: Install pytumblr
-        run: pip install pytumblr requests
-
-      - name: Post Tumblr Photo Set
-        env:
           CONSUMER_KEY: ${{ secrets.TUMBLR_CONSUMER_API_KEY }}
           CONSUMER_SECRET: ${{ secrets.TUMBLR_CONSUMER_API_SECRET }}
           ACCESS_TOKEN: ${{ secrets.TUMBLR_ACCESS_TOKEN }}
           ACCESS_TOKEN_SECRET: ${{ secrets.TUMBLR_ACCESS_TOKEN_SECRET }}
           BLOG_IDENTIFIER: ${{ secrets.TUMBLR_BLOG_IDENTIFIER }}
-          POST_JSON: ${{ steps.newpost.outputs.file }}
         run: |
-          python3 <<EOF
-          import os, json, pytumblr
-      
-          with open(os.environ['POST_JSON']) as f:
-              post = json.load(f)
-      
-          client = pytumblr.TumblrRestClient(
-              os.environ['CONSUMER_KEY'],
-              os.environ['CONSUMER_SECRET'],
-              os.environ['ACCESS_TOKEN'],
-              os.environ['ACCESS_TOKEN_SECRET'],
-          )
-      
-          title_raw = post.get('title', '').strip()
-          location = post.get('location', '').strip()
-          description_raw = post.get('description', '').strip()
-          if title_raw:
-              title = f"<b>{title_raw}</b>"
-          else:
-              title = f"<b>Greetings from {location}</b>" if location else "<b>Greetings!</b>"
-          if description_raw:
-              caption = f"{title}<br><br>{description_raw}"
-          else:
-              caption = title
+          set -e
+          echo "New files detected:"
+          echo "${{ steps.newposts.outputs.files }}"
+          for file in ${{ steps.newposts.outputs.files }}; do
+            echo "-----------------------------------------"
+            echo "Processing $file"
+            
+            title=$(jq -r '.title' "$file")
+            description=$(jq -r '.description' "$file")
+            images=$(jq -c '.images[:10]' "$file")
+            location=$(jq -r '.location' "$file")
+            number=$(jq -r '.number' "$file")
 
-          base_url = "https://raw.githubusercontent.com/NicK4rT/frolics/main/"
+            # ---------- Discord ----------
+            embeds=$(echo "$images" | jq '[.[] | {image: {url: .}}]')
+            content="**Greetings from $location**"
+            if [ -n "$title" ] && [ "$title" != "null" ]; then
+              content="**$title**"
+            fi
+            if [ -n "$description" ] && [ "$description" != "null" ]; then
+              content="$content\n$description"
+            fi
 
-          images = post.get('images', [])[:10]
-          if not images:
-              raise Exception("No images found in post JSON!")
-          
-          local_paths = []
-          for img_url in images:
-              if not img_url.startswith(base_url):
-                  raise Exception(f"Unexpected image URL format: {img_url}")
-          
-              local_path = img_url[len(base_url):]
-              local_paths.append(local_path)
-          
-              if not os.path.exists(local_path):
-                  raise Exception(f"File does not exist: {local_path}")
-      
-          res = client.create_photo(
-              os.environ['BLOG_IDENTIFIER'],
-              state="published",
-              tags=post.get('tags', []),
-              data=local_paths,
-              caption=caption,
-              format='html'
-          )
-          print(res)
-          EOF
+            payload=$(jq -n --arg content "$content" --argjson embeds "$embeds" \
+              '{content: $content, embeds: $embeds}')
+
+            echo "Posting to Discord..."
+            response=$(curl -s -w "%{http_code}" -o response.txt \
+              -X POST -H "Content-Type: application/json" \
+              -d "$payload" "$DISCORD_WEBHOOK")
+            cat response.txt
+            if [ "$response" -ne 204 ]; then
+              echo "Discord POST failed for $file (status $response)"
+              exit 1
+            fi
+
+            # ---------- Tumblr ----------
+            echo "Posting to Tumblr..."
+            python3 <<EOF
+            import os, json, pytumblr
+            
+            with open("$file") as f:
+                post = json.load(f)
+            
+            client = pytumblr.TumblrRestClient(
+                os.environ['CONSUMER_KEY'],
+                os.environ['CONSUMER_SECRET'],
+                os.environ['ACCESS_TOKEN'],
+                os.environ['ACCESS_TOKEN_SECRET'],
+            )
+            
+            title_raw = post.get('title', '').strip()
+            location = post.get('location', '').strip()
+            description_raw = post.get('description', '').strip()
+            if title_raw:
+                title = f"<b>{title_raw}</b>"
+            else:
+                title = f"<b>Greetings from {location}</b>" if location else "<b>Greetings!</b>"
+            if description_raw:
+                caption = f"{title}<br><br>{description_raw}"
+            else:
+                caption = title
+            
+            base_url = "https://raw.githubusercontent.com/NicK4rT/frolics/main/"
+            images = post.get('images', [])[:10]
+            if not images:
+                raise Exception("No images found in post JSON!")
+            
+            local_paths = []
+            for img_url in images:
+                if not img_url.startswith(base_url):
+                    raise Exception(f"Unexpected image URL format: {img_url}")
+                local_path = img_url[len(base_url):]
+                local_paths.append(local_path)
+                if not os.path.exists(local_path):
+                    raise Exception(f"File does not exist: {local_path}")
+            
+            res = client.create_photo(
+                os.environ['BLOG_IDENTIFIER'],
+                state="published",
+                tags=post.get('tags', []),
+                data=local_paths,
+                caption=caption,
+                format='html'
+            )
+            print(res)
+            EOF
+          done
 
       - name: Trigger Private Repo Update
         uses: actions/github-script@v6
