@@ -13,15 +13,14 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 2  # needed for git diff
 
       - name: Get new JSON files
         id: newposts
         run: |
           files=$(git diff --name-only HEAD^ HEAD -- 'posts/*.json' || true)
-          echo "files<<EOF" >> $GITHUB_OUTPUT
-          echo "$files" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          files=$(echo "$files" | tr '\n' ' ')
+          echo "files=$files" >> $GITHUB_OUTPUT
 
       - name: Install dependencies
         run: pip install pytumblr requests jq
@@ -42,7 +41,8 @@ jobs:
           for file in ${{ steps.newposts.outputs.files }}; do
             echo "-----------------------------------------"
             echo "Processing $file"
-            
+            [ ! -f "$file" ] && echo "File not found: $file" && continue
+
             title=$(jq -r '.title' "$file")
             description=$(jq -r '.description' "$file")
             images=$(jq -c '.images[:10]' "$file")
