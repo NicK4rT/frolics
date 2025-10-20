@@ -29,6 +29,7 @@ jobs:
       - name: Parse post info (title/desc/images)
         id: parsed
         run: |
+          cd $GITHUB_WORKSPACE
           echo "${{ steps.newposts.outputs.files }}" | while IFS= read -r file; do
             echo "Parsing $file ..."
             title=$(jq -r '.title' "$file")
@@ -36,7 +37,7 @@ jobs:
             images=$(jq -c '.images[:10]' "$file")
             location=$(jq -r '.location' "$file")
             number=$(jq -r '.number' "$file")
-
+      
             echo "FILE_$number=$file" >> $GITHUB_ENV
             echo "TITLE_$number=$title" >> $GITHUB_ENV
             echo "DESCRIPTION_$number=$description" >> $GITHUB_ENV
