@@ -13,7 +13,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2  # needed for git diff
+          fetch-depth: 2
 
       - name: Get new JSON files
         id: newposts
