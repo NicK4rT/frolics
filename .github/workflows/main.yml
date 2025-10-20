@@ -37,12 +37,13 @@ jobs:
             images=$(jq -c '.images[:10]' "$file")
             location=$(jq -r '.location' "$file")
             number=$(jq -r '.number' "$file")
+            safe_number=$(echo "$number" | tr -cd '[:alnum:]_-' | tr '[:lower:]' '[:upper:]' | tr -s ' ,-' '_')
       
-            echo "FILE_$number=$file" >> $GITHUB_ENV
-            echo "TITLE_$number=$title" >> $GITHUB_ENV
-            echo "DESCRIPTION_$number=$description" >> $GITHUB_ENV
-            echo "IMAGES_$number=$images" >> $GITHUB_ENV
-            echo "LOCATION_$number=$location" >> $GITHUB_ENV
+            echo "FILE_$safe_number=$file" >> $GITHUB_ENV
+            echo "TITLE_$safe_number=$title" >> $GITHUB_ENV
+            echo "DESCRIPTION_$safe_number=$description" >> $GITHUB_ENV
+            echo "IMAGES_$safe_number=$images" >> $GITHUB_ENV
+            echo "LOCATION_$safe_number=$location" >> $GITHUB_ENV
           done
 
       - name: Post to Discord
